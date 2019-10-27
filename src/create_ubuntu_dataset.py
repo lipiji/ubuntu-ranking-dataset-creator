@@ -34,7 +34,8 @@ def translate_dialog_to_lists(dialog_filename):
     """
 
     dialog_file = open(dialog_filename, 'r')
-    dialog_reader = unicodecsv.reader(dialog_file, delimiter='\t',quoting=csv.QUOTE_NONE)
+    dialog_reader = csv.reader(dialog_file, delimiter='\t',quoting=csv.QUOTE_NONE)
+    #dialog_reader = unicodecsv.reader(dialog_file, delimiter='\t',quoting=csv.QUOTE_NONE, encoding="utf-8")
 
     # go through the dialog
     first_turn = True
@@ -75,7 +76,7 @@ def get_random_utterances_from_corpus(candidate_dialog_paths,rng,utterances_num=
     utterances = []
     dialogs_num = len(candidate_dialog_paths)
 
-    for i in xrange(0,utterances_num):
+    for i in range(0,utterances_num):
         # sample random dialog
         dialog_path = candidate_dialog_paths[rng.randint(0,dialogs_num-1)]
         # load the dialog
@@ -84,7 +85,7 @@ def get_random_utterances_from_corpus(candidate_dialog_paths,rng,utterances_num=
         # we do not count the last  _dialog_end__ urn
         dialog_len = len(dialog) - 1
         if(dialog_len<min_turn):
-            print "Dialog {} was shorter than the minimum required lenght {}".format(dialog_path,dialog_len)
+            print("Dialog {} was shorter than the minimum required lenght {}".format(dialog_path,dialog_len))
             exit()
         # sample utterance, exclude the last round that is always "dialog end"
         max_ix = min(max_turn, dialog_len) - 1
@@ -114,7 +115,7 @@ def dialog_turns_to_string(dialog):
     :return:
     """
     # join utterances
-    turns_as_strings = map(singe_user_utterances_to_string,dialog)
+    turns_as_strings = list(map(singe_user_utterances_to_string,dialog))
     # join turns
     return "".join(map(lambda x : x + " " + end_of_turn_symbol + " ", turns_as_strings))
 
@@ -200,7 +201,7 @@ def create_examples_train(candidate_dialog_paths, rng, positive_probability=0.5,
     examples = []
     for context_dialog in candidate_dialog_paths:
         if i % 1000 == 0:
-            print str(i)
+            print(str(i))
         dialog_path = candidate_dialog_paths[i]
         examples.append(create_single_dialog_train_example(dialog_path, candidate_dialog_paths, rng, positive_probability,
                                                            max_context_length=max_context_length))
@@ -222,7 +223,7 @@ def create_examples(candidate_dialog_paths, examples_num, creator_function):
         context_dialog = candidate_dialog_paths[i % unique_dialogs_num]
         # counter for tracking progress
         if i % 1000 == 0:
-            print str(i)
+            print(str(i))
         i+=1
 
         examples.append(creator_function(context_dialog, candidate_dialog_paths))
@@ -258,7 +259,7 @@ def prepare_data_maybe_download(directory):
         # archive missing, download it
         print("Downloading %s to %s" % (url, archive_path))
         filepath, _ = urllib.request.urlretrieve(url, archive_path)
-        print "Successfully downloaded " + filepath
+        print("Successfully downloaded " + filepath)
 
     # unpack data
     if not os.path.exists(dialogs_path):
@@ -280,17 +281,17 @@ if __name__ == '__main__':
         rng = random.Random(args.seed)
         # training dataset
         f = open(os.path.join("meta", file_list_csv), 'r')
-        dialog_paths = map(lambda path: os.path.join(args.data_root, "dialogs", path), convert_csv_with_dialog_paths(f))
+        dialog_paths = list(map(lambda path: os.path.join(args.data_root, "dialogs", path), convert_csv_with_dialog_paths(f)))
 
         data_set = create_examples(dialog_paths,
                                    len(dialog_paths),
                                    lambda context_dialog, candidates : create_single_dialog_test_example(context_dialog, candidates, rng,
                                                                      args.n, args.max_context_length))
         # output the dataset
-        w = unicodecsv.writer(open(args.output, 'w'), encoding='utf-8')
+        w = unicodecsv.writer(open(args.output, 'wb'), encoding='utf-8')
         # header
         header = ["Context", "Ground Truth Utterance"]
-        header.extend(map(lambda x: "Distractor_{}".format(x), xrange(args.n)))
+        header.extend(list(map(lambda x: "Distractor_{}".format(x), range(args.n))))
         w.writerow(header)
 
         stemmer = SnowballStemmer("english")
@@ -301,13 +302,13 @@ if __name__ == '__main__':
             translated_row.extend(row[2])
             
             if args.tokenize:
-                translated_row = map(nltk.word_tokenize, translated_row)
+                translated_row = list(map(nltk.word_tokenize, translated_row))
                 if args.stem:
-                    translated_row = map(lambda sub: map(stemmer.stem, sub), translated_row)
+                    translated_row = list(map(lambda sub: map(stemmer.stem, sub), translated_row))
                 if args.lemmatize:
-                    translated_row = map(lambda sub: map(lambda tok: lemmatizer.lemmatize(tok, pos='v'), sub), translated_row)
+                    translated_row = list(map(lambda sub: map(lambda tok: lemmatizer.lemmatize(tok, pos='v'), sub), translated_row))
                     
-                translated_row = map(lambda x: " ".join(x), translated_row)
+                translated_row = list(map(lambda x: " ".join(x), translated_row))
 
             w.writerow(translated_row)
         print("Dataset stored in: {}".format(args.output))
@@ -319,7 +320,7 @@ if __name__ == '__main__':
         # training dataset
 
         f = open(os.path.join("meta", "trainfiles.csv"), 'r')
-        dialog_paths = map(lambda path: os.path.join(args.data_root, "dialogs", path), convert_csv_with_dialog_paths(f))
+        dialog_paths = list(map(lambda path: os.path.join(args.data_root, "dialogs", path), convert_csv_with_dialog_paths(f)))
 
         train_set = create_examples(dialog_paths,
                                     args.examples,
@@ -331,7 +332,7 @@ if __name__ == '__main__':
         lemmatizer = WordNetLemmatizer()
 
         # output the dataset
-        w = unicodecsv.writer(open(args.output, 'w'), encoding='utf-8')
+        w = unicodecsv.writer(open(args.output, 'wb'), encoding='utf-8')
         # header
         w.writerow(["Context", "Utterance", "Label"])
         for row in train_set:
@@ -341,11 +342,11 @@ if __name__ == '__main__':
                 translated_row = [nltk.word_tokenize(row[i]) for i in [0,1]]
 
                 if args.stem:
-                    translated_row = map(lambda sub: map(stemmer.stem, sub), translated_row)
+                    translated_row = list(map(lambda sub: map(stemmer.stem, sub), translated_row))
                 if args.lemmatize:
-                    translated_row = map(lambda sub: map(lambda tok: lemmatizer.lemmatize(tok, pos='v'), sub), translated_row)
+                    translated_row = list(map(lambda sub: map(lambda tok: lemmatizer.lemmatize(tok, pos='v'), sub), translated_row))
 
-                translated_row = map(lambda x: " ".join(x), translated_row)
+                translated_row = list(map(lambda x: " ".join(x), translated_row))
                 translated_row.append(int(float(row[2])))
 
             w.writerow(translated_row)
